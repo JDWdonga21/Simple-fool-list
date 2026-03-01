@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useState } from 'react';
 import { RootStackParamList } from '../App';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -20,9 +21,16 @@ export default function ResultScreen() {
   const route = useRoute<ResultRouteProp>();
   const navigation = useNavigation<ResultNavigationProp>();
   const { contacts, gradedContacts } = route.params;
+  const [openGrade, setOpenGrade] = useState<string | null>(null);
 
   const counts = { A: 0, B: 0, C: 0, F: 0 } as Record<string, number>;
   Object.values(gradedContacts).forEach(g => { if (counts[g] !== undefined) counts[g]++; });
+
+  const getContactsByGrade = (grade: string) =>
+    contacts.filter((_, idx) => gradedContacts[idx] === grade);
+
+  const toggleGrade = (grade: string) =>
+    setOpenGrade(prev => prev === grade ? null : grade);
 
   const downloadExcel = async () => {
     try {
@@ -34,16 +42,15 @@ export default function ResultScreen() {
         분류기준: GRADE_INFO[gradedContacts[idx]]?.label || '',
       }));
 
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Ranking');
-        const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-
-        const uri = FileSystem.documentDirectory + `연락처분류결과_${new Date().toISOString().slice(0, 10)}.xlsx`;
-        await FileSystem.writeAsStringAsync(uri, wbout, { encoding: 'base64' });
-        await Sharing.shareAsync(uri);
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Ranking');
+      const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+      const uri = FileSystem.documentDirectory + `연락처분류결과_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      await FileSystem.writeAsStringAsync(uri, wbout, { encoding: 'base64' });
+      await Sharing.shareAsync(uri);
     } catch (e) {
-        Alert.alert('오류', String(e));
+      Alert.alert('오류', String(e));
     }
   };
 
@@ -51,18 +58,46 @@ export default function ResultScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.emoji}>🎉</Text>
       <Text style={styles.title}>분류 완료!</Text>
-      <Text style={styles.subtitle}>데이터 정리가 끝났습니다.{'\n'}엑셀 파일로 결과를 확인하세요.</Text>
+      <Text style={styles.subtitle}>카드를 눌러 연락처 목록을 확인하세요.</Text>
 
-      {/* 등급 요약 */}
-      <View style={styles.grid}>
-        {['A', 'B', 'C', 'F'].map(g => (
-          <View key={g} style={[styles.gradeCard, { backgroundColor: GRADE_INFO[g].bg }]}>
-            <Text style={[styles.gradeLabel, { color: GRADE_INFO[g].color }]}>{g}</Text>
-            <Text style={[styles.gradeCount, { color: GRADE_INFO[g].color }]}>{counts[g]}</Text>
-            <Text style={[styles.gradeDesc, { color: GRADE_INFO[g].color }]}>{GRADE_INFO[g].label}</Text>
+      {/* 등급 카드 + 펼치기 */}
+      {['A', 'B', 'C', 'F'].map(g => {
+        const isOpen = openGrade === g;
+        const list = getContactsByGrade(g);
+        return (
+          <View key={g} style={styles.accordionWrap}>
+            <TouchableOpacity
+              style={[styles.gradeCard, { backgroundColor: GRADE_INFO[g].bg }]}
+              onPress={() => toggleGrade(g)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.gradeCardLeft}>
+                <Text style={[styles.gradeLabel, { color: GRADE_INFO[g].color }]}>{g}</Text>
+                <Text style={[styles.gradeDesc, { color: GRADE_INFO[g].color }]}>{GRADE_INFO[g].label}</Text>
+              </View>
+              <View style={styles.gradeCardRight}>
+                <Text style={[styles.gradeCount, { color: GRADE_INFO[g].color }]}>{counts[g]}명</Text>
+                <Text style={[styles.arrow, { color: GRADE_INFO[g].color }]}>{isOpen ? '▲' : '▼'}</Text>
+              </View>
+            </TouchableOpacity>
+
+            {isOpen && (
+              <View style={[styles.listWrap, { borderColor: GRADE_INFO[g].bg }]}>
+                {list.length === 0 ? (
+                  <Text style={styles.emptyText}>해당 등급 없음</Text>
+                ) : (
+                  list.map((c, i) => (
+                    <View key={i} style={styles.contactRow}>
+                      <Text style={styles.contactName}>{c.name}</Text>
+                      <Text style={styles.contactPhone}>{c.phone || '번호 없음'}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
           </View>
-        ))}
-      </View>
+        );
+      })}
 
       {/* 버튼 */}
       <TouchableOpacity style={styles.excelBtn} onPress={downloadExcel}>
@@ -83,7 +118,7 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    padding: 32,
+    padding: 24,
     paddingTop: 80,
   },
   emoji: {
@@ -100,36 +135,75 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94a3b8',
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 40,
+    marginBottom: 32,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 40,
+  accordionWrap: {
     width: '100%',
+    marginBottom: 12,
   },
   gradeCard: {
-    width: '47%',
-    padding: 20,
-    borderRadius: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 20,
+    borderRadius: 20,
+  },
+  gradeCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  gradeCardRight: {
+    alignItems: 'flex-end',
+    gap: 4,
   },
   gradeLabel: {
     fontSize: 28,
     fontWeight: '900',
-    marginBottom: 4,
-  },
-  gradeCount: {
-    fontSize: 36,
-    fontWeight: '900',
-    marginBottom: 4,
   },
   gradeDesc: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '700',
+  },
+  gradeCount: {
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  arrow: {
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  listWrap: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginTop: 4,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  contactName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  contactPhone: {
+    fontSize: 13,
+    color: '#94a3b8',
+    fontVariant: ['tabular-nums'],
+  },
+  emptyText: {
     textAlign: 'center',
+    padding: 16,
+    color: '#cbd5e1',
+    fontWeight: '700',
   },
   excelBtn: {
     backgroundColor: '#1e293b',
@@ -137,11 +211,8 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderRadius: 24,
     alignItems: 'center',
+    marginTop: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
     elevation: 4,
   },
   excelBtnText: {
@@ -156,6 +227,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#e2e8f0',
+    marginBottom: 40,
   },
   resetBtnText: {
     color: '#94a3b8',
