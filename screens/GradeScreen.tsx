@@ -19,8 +19,11 @@ export default function GradeScreen() {
   const route = useRoute<GradeRouteProp>();
   const { contacts } = route.params;
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [gradedContacts, setGradedContacts] = useState<Record<number, string>>({});
+  const initialGraded = route.params.gradedContacts || {};
+  const firstUngraded = contacts.findIndex((_, idx) => !initialGraded[idx]);
+
+  const [currentIndex, setCurrentIndex] = useState(firstUngraded >= 0 ? firstUngraded : 0);
+  const [gradedContacts, setGradedContacts] = useState<Record<number, string>>(initialGraded);
 
   const handleGrade = (grade: string) => {
     const next = { ...gradedContacts, [currentIndex]: grade };

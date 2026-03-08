@@ -6,7 +6,7 @@ import ResultScreen from './screens/ResultScreen';
 
 export type RootStackParamList = {
   Home: undefined;
-  Grade: { contacts: Contact[] };
+  Grade: { contacts: Contact[]; gradedContacts?: Record<number, string> };
   Result: { contacts: Contact[]; gradedContacts: Record<number, string> };
 };
 
