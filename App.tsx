@@ -1,8 +1,13 @@
+import 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 import HomeScreen from './screens/HomeScreen';
 import GradeScreen from './screens/GradeScreen';
 import ResultScreen from './screens/ResultScreen';
+
+SplashScreen.preventAutoHideAsync();
 
 export type RootStackParamList = {
   Home: undefined;
@@ -19,6 +24,18 @@ export type Contact = {
 const Stack = createStackNavigator<RootStackParamList>();
 
 export default function App() {
+  useEffect(() => {
+    const prepare = async () => {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await SplashScreen.hideAsync();
+      } catch (e) {
+        console.warn('SplashScreen error:', e);
+      }
+    };
+    prepare();
+  }, []);
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>

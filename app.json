@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Simple-fool-list",
+    "name": "심풀리스트",
     "slug": "Simple-fool-list",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -21,10 +21,16 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.jdw21.Simplefoollist"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "70f890c5-87ac-420d-a442-6548c102cbc7"
+      }
     }
   }
 }
